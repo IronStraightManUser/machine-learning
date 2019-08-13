@@ -1,0 +1,87 @@
+import  numpy as np
+import  pandas as pd
+import  matplotlib.pyplot as plot
+
+#导入数据，查看
+path='C:/Users/TT-M/Desktop/ex1data1.txt'
+#names添加列名，header用指定的行来作为标题，这里设为none
+data=pd.read_csv(path,header=None,names=['Population','Profit'])
+# #读取前五行数据，看看读取了没有
+# print(data.head())#我想在Jupyter上运行其实更方便
+# #读取基本信息
+# print(data.describe())
+
+#画出散点图，看看长啥样
+data.plot(kind='scatter',x='Population',y='Profit', figsize=(8,5))
+plot.show()
+
+#计算代价函数J（θ）,x[97,2] theta[1,2] y[97,1]
+def ComputeCost(X,y,theta):
+    inner=np.power(((X*theta.T )-y),2)
+    return np.sum(inner)/(2*len(X))
+
+#添加一列，即x0=1,列名为x0
+data.insert(0,'x0',1)
+
+#取最后一列为y，其余为X
+cols=data.shape[1]#列数
+X=data.iloc[:,0:cols-1]#：表示取所有行   0：cols-1表示取0到cols-1列
+y=data.iloc[:,cols-1:cols]
+
+# 观察X和y是否正确
+# print(X.head())
+# print(y.head())
+
+# 向量化X，y，初始化theta（随机选择一个参数的组合，这里取【0,0】）
+X = np.matrix(X.values)
+y = np.matrix(y.values)
+theta = np.matrix([0,0])
+
+a=ComputeCost(X,y,theta)
+print(a)
+
+
+def gradientDescent(X, y, theta, alpha, epoch):
+    """reuturn theta, cost"""
+
+    temp = np.matrix(np.zeros(theta.shape))  # 初始化一个 θ 临时矩阵(1, 2)
+    parameters = int(theta.flatten().shape[1])  # 参数 θ的数量
+    cost = np.zeros(epoch)  # 初始化一个ndarray，包含每次epoch的cost
+    m = X.shape[0]  # 样本数量m
+
+    for i in range(epoch):
+        # 利用向量化一步求解
+        temp = theta - (alpha / m) * (X * theta.T - y).T * X
+
+        theta = temp
+        cost[i] = ComputeCost(X, y, theta)
+
+    return  theta, cost
+
+#初始化变量
+alpha=0.01
+epoch=1000
+
+#运行梯度下降算找到最佳的theta
+final_theta,Cost = gradientDescent(X, y, theta, alpha, epoch)
+
+x = np.linspace(data.Population.min(), data.Population.max(), 100)  # 横坐标
+#从x轴最小到最大，分100份
+f = final_theta[0, 0] + (final_theta[0, 1] * x)  # 纵坐标，利润
+#theta=[theta0，theta1 ]转置，final_theta[0, 0] 指的是theta0
+fig, ax = plot.subplots(figsize=(6,4))
+ax.plot(x, f, 'r', label='Prediction')
+ax.scatter(data['Population'], data.Profit, label='Traning Data')
+ax.legend(loc=2)  # 2表示在左上角
+ax.set_xlabel('Population')
+ax.set_ylabel('Profit')
+ax.set_title('Predicted Profit vs. Population Size')
+plot.show()
+print(theta)
+fig, ax = plot.subplots(figsize=(8,4))
+ax.plot(np.arange(epoch), Cost, 'r')  # np.arange()返回等差数组
+ax.set_xlabel('Iterations')
+ax.set_ylabel('Cost')
+ax.set_title('Error vs. Training Epoch')
+plot.show()
+

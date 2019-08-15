@@ -1,0 +1,129 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data = pd.read_csv('C:/Users/TT-M/Desktop/ex2data2.txt', names=['Test 1', 'Test 2', 'Accepted'])
+
+#画出散点图
+def plot_data():
+    positive = data[data['Accepted'].isin([1])]
+    negative = data[data['Accepted'].isin([0])]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.scatter(positive['Test 1'], positive['Test 2'], s=50, c='b', marker='o', label='Accepted')
+    ax.scatter(negative['Test 1'], negative['Test 2'], s=50, c='r', marker='x', label='Rejected')
+    ax.legend()
+    ax.set_xlabel('Test 1 Score')
+    ax.set_ylabel('Test 2 Score')
+plot_data()
+plt.show()
+
+#注意到其中的正负两类数据并没有线性的决策界限。因此直接用logistic回归在这个数据集上并不能表现良好，
+# 因为它只能用来寻找一个线性的决策边界。
+#创建更多特征
+def feature_mapping(x1, x2, power):
+    data = {}
+    for i in np.arange(power + 1):
+        for p in np.arange(i + 1):
+            data["f{}{}".format(i - p, p)] = np.power(x1, i - p) * np.power(x2, p)
+
+#     data = {"f{}{}".format(i - p, p): np.power(x1, i - p) * np.power(x2, p)
+#                 for i in np.arange(power + 1)
+#                 for p in np.arange(i + 1)
+#             }
+    return pd.DataFrame(data)
+
+#用两列生成28列，其中第一列全为1
+x1 = data['Test 1'].as_matrix()
+x2 = data['Test 2'].as_matrix()
+_data = feature_mapping(x1, x2, power=6)
+# print(_data.head())
+
+#这是一个高维特征向量，会得到一个更复杂的决策边界。可高维度也代表特征重复，反应到图形上
+#即为过拟合，所以正则化
+
+#获取特征
+# 这里因为做特征映射的时候已经添加了偏置项，所以不用手动添加了。
+# X = _data.as_matrix()
+# y = data['Accepted'].as_matrix()
+# theta = np.zeros(X.shape[1])# ((118, 28), (118,), (28,))
+
+X = _data.as_matrix()
+y = data['Accepted'].as_matrix()
+theta = np.zeros(X.shape[1])# ((118, 28), (118,), (28,))
+
+#代价函数
+def sigmoid(z):
+    return 1 / (1 + np.exp(- z))
+def cost(theta, X, y,l):
+    first = (-y) * np.log(sigmoid(X @ theta))
+    second = (1 - y)*np.log(1 - sigmoid(X @ theta))
+    # 因为theta0不参加正则化，故reg中的theta需要除去theta0
+    _theta=theta[1:]
+    reg=(l/(2*len(X)))*np.sum(np.power(_theta[1:_theta.shape[0]],2))
+    return np.sum(first-second)/(len(X))+reg
+
+# theta = np.matrix([0,0])
+# theta = np.zeros(X.shape[1])
+# 这两个是不一样的，没注意，如果按照一样的写法，reg项会出错。怎么方便怎么来
+
+X = _data.as_matrix()
+y = data['Accepted'].as_matrix()
+theta = np.zeros(X.shape[1])# ((118, 28), (118,), (28,))
+
+# print(cost(theta, X, y, l=1) ) #     0.69314718056
+#梯度下降函数，只对theta的集合进行一次求偏导，并没有循环
+def gradient(theta, X, y,l=1):
+    reg=(1 / len(X)) * theta
+    reg[0]=0
+    return ((X.T @ (sigmoid(X @ theta) - y))/len(X)+reg)
+# print(gradient(theta, X, y,l=1))
+
+# 最常使用的参数：
+#
+# func：优化的目标函数
+#
+# x0：初值
+#
+# fprime：提供优化函数func的梯度函数，不然优化函数func必须返回函数值和梯度，或者设置approx_grad=True
+#
+# approx_grad :如果设置为True，会给出近似梯度
+#
+# args：元组，是传递给优化函数的参数
+#
+# 返回：
+#
+# x ： 数组，返回的优化问题目标值
+#
+# nfeval ： 整数，function evaluations的数目
+#
+# 在进行优化的时候，每当目标优化函数被调用一次，就算一个function evaluation。在一次迭代过程中会有多次function evaluation。这个参数不等同于迭代次数，而往往大于迭代次数。
+# rc ： int,Return code, see below
+
+import scipy.optimize as opt
+result2 = opt.fmin_tnc(func=cost, x0=theta, fprime=gradient, args=(X, y, 2))
+
+def predict(theta, X):
+    probability = sigmoid(X@theta)
+    return [1 if x >= 0.5 else 0 for x in probability]  # return a list
+final_theta = result2[0]
+predictions = predict(final_theta, X)
+correct = [1 if a==b else 0 for (a, b) in zip(predictions, y)]
+accuracy = sum(correct) / len(correct)
+print(accuracy)
+
+#X×θ=0 (this is the line)
+x = np.linspace(-1, 1.5, 250)
+xx, yy = np.meshgrid(x, x)
+
+z = feature_mapping(xx.ravel(), yy.ravel(), 6).as_matrix()#网格化，ravel（）降维
+z = z @ final_theta
+z = z.reshape(xx.shape)#重新组织
+
+plot_data()
+plt.contour(xx, yy, z, 0)
+plt.ylim(-.8, 1.2)
+
+
+
+
